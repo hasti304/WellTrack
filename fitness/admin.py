@@ -35,5 +35,5 @@ class SmartCoachChatAdmin(admin.ModelAdmin):
 
 @admin.register(SevenDayPlan)
 class SevenDayPlanAdmin(admin.ModelAdmin):
-    list_display = ("user", "created_at")
+    list_display = ("user", "created_at", "goal_match_score")
     list_filter = ("created_at",)

@@ -9,13 +9,75 @@
   <button type="button" id="btn-pdf" class="btn btn-outline-secondary" disabled>Download PDF</button>
 </div>
 <div id="plan-status" class="small text-muted mb-2"></div>
+<div id="goal-match-card" class="card border-0 shadow-sm mb-3 d-none">
+  <div class="card-body">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+      <h2 class="h6 mb-0">Goal match</h2>
+      <span class="badge rounded-pill text-bg-primary fs-6" id="goal-match-score-badge">—</span>
+    </div>
+    <p class="small text-muted mb-2">Heuristic score from your profile (optional calorie / protein / workouts fields and fitness goals text) vs what the plan implies (workout days, meal/calorie hints, protein cues).</p>
+    <div class="progress mb-3" style="height: 8px;" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="goal-match-progress-wrap">
+      <div class="progress-bar" id="goal-match-progress" style="width: 0%"></div>
+    </div>
+    <div class="row g-3 small">
+      <div class="col-md-6">
+        <div class="fw-semibold text-success mb-1">Matched</div>
+        <ul class="mb-0 ps-3" id="goal-match-matched"></ul>
+      </div>
+      <div class="col-md-6">
+        <div class="fw-semibold text-danger mb-1">Gaps</div>
+        <ul class="mb-0 ps-3" id="goal-match-missed"></ul>
+      </div>
+    </div>
+    <details class="mt-3 small text-muted">
+      <summary class="fw-semibold text-body">Parsed signals</summary>
+      <pre class="small bg-light border rounded p-2 mt-2 mb-0" id="goal-match-raw"></pre>
+    </details>
+  </div>
+</div>
 <div id="plan-preview" class="border rounded p-3 bg-white shadow-sm"></div>
 
 <h2 class="h5 mt-5">Saved plans</h2>
 <div class="list-group shadow-sm">
   {% for p in plans %}
     <details class="list-group-item">
-      <summary class="fw-semibold">{{ p.created_at }}</summary>
+      <summary class="fw-semibold d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <span>{{ p.created_at }}</span>
+        {% if p.goal_match_score is not None %}
+          <span class="badge text-bg-secondary rounded-pill">Goal match: {{ p.goal_match_score }}/100</span>
+        {% endif %}
+      </summary>
+      {% if p.goal_match_score is not None %}
+        <div class="progress my-2" style="height: 6px;">
+          <div class="progress-bar" style="width: {{ p.goal_match_score }}%"></div>
+        </div>
+      {% endif %}
+      {% if p.goal_match_breakdown %}
+        {% with b=p.goal_match_breakdown %}
+        <div class="row g-2 small mb-2">
+          <div class="col-md-6">
+            <div class="fw-semibold text-success">Matched</div>
+            <ul class="mb-0 ps-3">
+              {% for line in b.matched %}
+                <li>{{ line }}</li>
+              {% empty %}
+                <li class="text-muted">—</li>
+              {% endfor %}
+            </ul>
+          </div>
+          <div class="col-md-6">
+            <div class="fw-semibold text-danger">Gaps</div>
+            <ul class="mb-0 ps-3">
+              {% for line in b.missed %}
+                <li>{{ line }}</li>
+              {% empty %}
+                <li class="text-muted">—</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+        {% endwith %}
+      {% endif %}
       <div class="plan-saved-md small mt-2">{{ p.plan_text|linebreaksbr }}</div>
     </details>
   {% empty %}
@@ -30,16 +92,62 @@
 <script>
   const csrfToken = '{{ csrf_token }}';
   let currentPlan = '';
+  let currentGoalMatch = null;
   const preview = document.getElementById('plan-preview');
   const statusEl = document.getElementById('plan-status');
   const btnSave = document.getElementById('btn-save');
   const btnPdf = document.getElementById('btn-pdf');
+  const goalCard = document.getElementById('goal-match-card');
 
-  function renderPlan(md) {
+  function renderGoalMatch(gm) {
+    currentGoalMatch = gm;
+    if (!gm || typeof gm.score !== 'number') {
+      goalCard.classList.add('d-none');
+      return;
+    }
+    goalCard.classList.remove('d-none');
+    const score = gm.score;
+    document.getElementById('goal-match-score-badge').textContent = score + '/100';
+    const bar = document.getElementById('goal-match-progress');
+    bar.style.width = score + '%';
+    bar.setAttribute('aria-valuenow', String(score));
+    const wrap = document.getElementById('goal-match-progress-wrap');
+    if (wrap) wrap.setAttribute('aria-valuenow', String(score));
+    const bd = gm.breakdown || {};
+    const fillMatched = (id, items) => {
+      const ul = document.getElementById(id);
+      ul.innerHTML = '';
+      (items || []).forEach((t) => {
+        const li = document.createElement('li');
+        li.textContent = t;
+        ul.appendChild(li);
+      });
+      if (!items || !items.length) {
+        const li = document.createElement('li');
+        li.className = 'text-muted';
+        li.textContent = '—';
+        ul.appendChild(li);
+      }
+    };
+    fillMatched('goal-match-matched', bd.matched);
+    fillMatched('goal-match-missed', bd.missed);
+    const raw = {
+      profile_targets: bd.profile_targets || {},
+      plan_estimates: bd.plan_estimates || {},
+    };
+    document.getElementById('goal-match-raw').textContent = JSON.stringify(raw, null, 2);
+  }
+
+  function renderPlan(md, goalMatch) {
     currentPlan = md;
-    preview.innerHTML = marked.parse(md);
+    preview.innerHTML = md.trim() ? marked.parse(md) : '';
     btnSave.disabled = !md.trim();
     btnPdf.disabled = !md.trim();
+    if (goalMatch !== undefined) {
+      renderGoalMatch(goalMatch);
+    } else if (!md.trim()) {
+      renderGoalMatch(null);
+    }
   }
 
   document.getElementById('btn-generate').addEventListener('click', () => {
@@ -56,7 +164,7 @@
           return;
         }
         statusEl.textContent = 'Ready to save or export.';
-        renderPlan(data.plan || '');
+        renderPlan(data.plan || '', data.goal_match || null);
       })
       .catch(() => { statusEl.textContent = 'Request failed.'; });
   });

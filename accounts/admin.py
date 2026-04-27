@@ -23,5 +23,14 @@ admin.site.register(User, UserAdmin)
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "age", "weight", "height", "gender")
+    list_display = (
+        "user",
+        "age",
+        "weight",
+        "height",
+        "gender",
+        "goal_calories",
+        "goal_protein_g",
+        "goal_workouts_per_week",
+    )
     search_fields = ("user__username", "user__email")

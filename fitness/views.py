@@ -18,6 +18,7 @@ from .models import (
     SmartCoachChat,
 )
 from .llm import chat_completion
+from .plan_goal_match import compute_goal_match
 from .rag import retrieve_context
 from .utils import calculate_bmi, estimated_calories_burned, navy_body_fat_percent
 
@@ -278,7 +279,14 @@ def api_smart_coach_history(request):
 
 @login_required
 def seven_day_plan(request):
-    plans = SevenDayPlan.objects.filter(user=request.user)[:20]
+    plans = list(SevenDayPlan.objects.filter(user=request.user).order_by("-created_at")[:20])
+    to_persist: list[SevenDayPlan] = []
+    for p in plans:
+        if p.goal_match_score is None and (p.plan_text or "").strip():
+            p.refresh_goal_match()
+            to_persist.append(p)
+    if to_persist:
+        SevenDayPlan.objects.bulk_update(to_persist, ["goal_match_score", "goal_match_breakdown"])
     return render(request, "fitness/seven_day_plan.html", {"plans": plans})
 
 
@@ -299,7 +307,8 @@ def api_seven_day_plan_generate(request):
     reply, err = _openai_chat([{"role": "user", "content": prompt}])
     if err:
         return JsonResponse({"error": err}, status=502)
-    return JsonResponse({"plan": reply})
+    gm = compute_goal_match(reply or "", profile=profile)
+    return JsonResponse({"plan": reply, "goal_match": gm})
 
 
 @login_required
@@ -312,8 +321,13 @@ def api_seven_day_plan_save(request):
     text = (payload.get("plan_text") or "").strip()
     if not text:
         return JsonResponse({"error": "Empty plan"}, status=400)
-    plan = SevenDayPlan.objects.create(user=request.user, plan_text=text)
-    return JsonResponse({"id": plan.id, "created_at": plan.created_at.isoformat()})
+    plan = SevenDayPlan(user=request.user, plan_text=text)
+    plan.refresh_goal_match()
+    plan.save()
+    gm = {"score": plan.goal_match_score, "breakdown": plan.goal_match_breakdown}
+    return JsonResponse(
+        {"id": plan.id, "created_at": plan.created_at.isoformat(), "goal_match": gm}
+    )
 
 
 @login_required

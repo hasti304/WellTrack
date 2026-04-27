@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 
+from .plan_goal_match import compute_goal_match
+
 
 class FoodLog(models.Model):
     MEAL_BREAKFAST = "breakfast"
@@ -100,9 +102,17 @@ class SevenDayPlan(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="seven_day_plans")
     plan_text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
+    goal_match_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    goal_match_breakdown = models.JSONField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
 
     def __str__(self):
         return f"Plan for {self.user} @ {self.created_at}"
+
+    def refresh_goal_match(self) -> None:
+        profile = getattr(self.user, "profile", None)
+        result = compute_goal_match(self.plan_text, profile=profile) if profile else compute_goal_match(self.plan_text)
+        self.goal_match_score = result["score"]
+        self.goal_match_breakdown = result["breakdown"]

@@ -46,6 +46,9 @@ class ProfileForm(forms.ModelForm):
             "waist",
             "neck",
             "hip",
+            "goal_calories",
+            "goal_protein_g",
+            "goal_workouts_per_week",
             "fitness_goals",
             "profile_image",
         ]
@@ -57,6 +60,11 @@ class ProfileForm(forms.ModelForm):
             "waist": forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
             "neck": forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
             "hip": forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+            "goal_calories": forms.NumberInput(attrs={"class": "form-control", "placeholder": "e.g. 2000"}),
+            "goal_protein_g": forms.NumberInput(attrs={"class": "form-control", "placeholder": "e.g. 140"}),
+            "goal_workouts_per_week": forms.NumberInput(
+                attrs={"class": "form-control", "min": 1, "max": 7, "placeholder": "1–7"}
+            ),
             "fitness_goals": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
             "profile_image": forms.ClearableFileInput(attrs={"class": "form-control"}),
         }

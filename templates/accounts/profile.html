@@ -3,6 +3,7 @@
 {% block content %}
 <h1 class="h2 mb-4">Your profile</h1>
 <p class="text-muted">Demographics power BMI, Navy body-fat estimates, and AI coaching.</p>
+<p class="text-muted small">Optional numeric goals below take priority over numbers buried in “Fitness goals” when we score your 7-day plans.</p>
 <form method="post" enctype="multipart/form-data" class="row g-3">
   {% csrf_token %}
   {% for field in form %}
