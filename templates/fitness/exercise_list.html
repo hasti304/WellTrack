@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Exercises — Welltrack{% endblock %}
+{% block content %}
+<h1 class="h2 mb-3">Exercises</h1>
+<p class="text-muted">Filter by category. Log a completion or add repeats when logged in.</p>
+<div class="btn-group flex-wrap mb-3" role="group">
+  <button type="button" class="btn btn-outline-primary cat-filter {% if not category %}active{% endif %}" data-category="">All</button>
+  {% for value, label in categories %}
+    <button type="button" class="btn btn-outline-primary cat-filter {% if category == value %}active{% endif %}"
+            data-category="{{ value }}">{{ label }}</button>
+  {% endfor %}
+</div>
+<div id="exercise-grid">
+  {% include "fitness/partials/exercise_grid.html" %}
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+  const timerIntervals = {};
+  function startExerciseTimer(id, minutes) {
+    if (timerIntervals[id]) clearInterval(timerIntervals[id]);
+    let totalSec = minutes * 60;
+    const el = document.getElementById('timerDisplay' + id);
+    if (!el) return;
+    timerIntervals[id] = setInterval(() => {
+      totalSec -= 1;
+      if (totalSec <= 0) {
+        clearInterval(timerIntervals[id]);
+        el.textContent = '0:00';
+        return;
+      }
+      const m = Math.floor(totalSec / 60);
+      const s = totalSec % 60;
+      el.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    }, 1000);
+  }
+  function resetExerciseTimer(id, minutes) {
+    if (timerIntervals[id]) clearInterval(timerIntervals[id]);
+    const el = document.getElementById('timerDisplay' + id);
+    if (el) el.textContent = minutes + ':00';
+  }
+
+  const grid = document.getElementById('exercise-grid');
+  document.querySelectorAll('.cat-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cat = btn.dataset.category;
+      const url = new URL('{% url "exercise_list" %}', window.location.origin);
+      if (cat) {
+        url.searchParams.set('category', cat);
+      } else {
+        url.searchParams.delete('category');
+      }
+      fetch(url.toString(), {headers: {'X-Requested-With': 'fetch'}})
+        .then(r => r.text())
+        .then(html => { grid.innerHTML = html; });
+      document.querySelectorAll('.cat-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+</script>
+{% endblock %}

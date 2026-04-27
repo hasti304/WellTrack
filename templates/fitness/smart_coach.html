@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Smart Coach — Welltrack{% endblock %}
+{% block content %}
+<h1 class="h2 mb-3">Smart Coach</h1>
+<p class="text-muted">Goal-aware coaching based on your profile.</p>
+<div id="coach-thread" class="border rounded p-3 mb-3 bg-light" style="min-height: 280px; max-height: 480px; overflow-y: auto;"></div>
+<form id="coach-form" class="d-flex gap-2">
+  {% csrf_token %}
+  <input type="text" id="coach-input" class="form-control" placeholder="Ask your coach..." autocomplete="off">
+  <button type="submit" class="btn btn-primary">Send</button>
+</form>
+<div id="coach-error" class="text-danger small mt-2"></div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="{% static 'smart_coach.js' %}"></script>
+{% endblock %}

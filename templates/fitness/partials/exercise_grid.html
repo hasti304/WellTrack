@@ -1,0 +1,88 @@
+{% if user.is_authenticated %}
+  <div class="row g-3 mb-4">
+    <div class="col-12"><h2 class="h5">Remaining</h2></div>
+    {% for ex in remaining_exercises %}
+      <div class="col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm">
+          {% if ex.image %}
+            <img src="{{ ex.image.url }}" class="card-img-top" alt="">
+          {% endif %}
+          <div class="card-body d-flex flex-column">
+            <h3 class="h6">{{ ex.name }}</h3>
+            <p class="small text-muted flex-grow-1">{{ ex.description|truncatewords:24 }}</p>
+            <p class="small mb-2">{{ ex.duration_minutes }} min · {{ ex.get_category_display }}</p>
+            <div class="d-flex gap-2 flex-wrap">
+              <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#timer{{ ex.id }}">Timer</button>
+              <form method="post" action="{% url 'exercise_complete' ex.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-primary">Log completion</button>
+              </form>
+            </div>
+          </div>
+        </div>
+        <div class="modal fade" id="timer{{ ex.id }}" tabindex="-1">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Timer — {{ ex.name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body text-center">
+                <p class="display-6" data-duration="{{ ex.duration_minutes }}" id="timerDisplay{{ ex.id }}">{{ ex.duration_minutes }}:00</p>
+                <button type="button" class="btn btn-primary me-2" onclick="startExerciseTimer({{ ex.id }}, {{ ex.duration_minutes }})">Start</button>
+                <button type="button" class="btn btn-secondary" onclick="resetExerciseTimer({{ ex.id }}, {{ ex.duration_minutes }})">Reset</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <p class="text-muted">Nothing left in this filter — great work.</p>
+    {% endfor %}
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12"><h2 class="h5">Completed</h2></div>
+    {% for row in completed_rows %}
+      {% with ex=row.exercise %}
+        <div class="col-md-6 col-lg-4">
+          <div class="card h-100 border-success shadow-sm">
+            {% if ex.image %}
+              <img src="{{ ex.image.url }}" class="card-img-top" alt="">
+            {% endif %}
+            <div class="card-body d-flex flex-column">
+              <h3 class="h6">{{ ex.name }}</h3>
+              <p class="small text-muted">Repeats logged: {{ row.repeat_count }}</p>
+              <form method="post" action="{% url 'exercise_repeat' ex.id %}" class="mt-auto">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-success">Add repeat</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      {% endwith %}
+    {% empty %}
+      <p class="text-muted">Complete an exercise to see it here.</p>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="row g-3">
+    {% for ex in remaining_exercises %}
+      <div class="col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm">
+          {% if ex.image %}
+            <img src="{{ ex.image.url }}" class="card-img-top" alt="">
+          {% endif %}
+          <div class="card-body">
+            <h3 class="h6">{{ ex.name }}</h3>
+            <p class="small text-muted">{{ ex.description|truncatewords:24 }}</p>
+            <p class="small">{{ ex.duration_minutes }} min · {{ ex.get_category_display }}</p>
+            <a href="{% url 'accounts_login' %}" class="btn btn-sm btn-primary">Login to log</a>
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <p>No exercises yet. Run <code>seed_exercises.py</code> after migrating.</p>
+    {% endfor %}
+  </div>
+{% endif %}

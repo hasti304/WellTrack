@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Profile — Welltrack{% endblock %}
+{% block content %}
+<h1 class="h2 mb-4">Your profile</h1>
+<p class="text-muted">Demographics power BMI, Navy body-fat estimates, and AI coaching.</p>
+<form method="post" enctype="multipart/form-data" class="row g-3">
+  {% csrf_token %}
+  {% for field in form %}
+    <div class="col-md-6">
+      <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field.errors }}
+      {{ field }}
+    </div>
+  {% endfor %}
+  <div class="col-12">
+    <button type="submit" class="btn btn-primary">Save</button>
+  </div>
+</form>
+{% endblock %}

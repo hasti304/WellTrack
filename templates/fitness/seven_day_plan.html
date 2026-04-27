@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}7-Day Plan — Welltrack{% endblock %}
+{% block content %}
+<h1 class="h2 mb-3">7-Day plan</h1>
+<p class="text-muted">Generate a Markdown plan from your goals, save it, or download a simple PDF in the browser.</p>
+<div class="d-flex flex-wrap gap-2 mb-3">
+  <button type="button" id="btn-generate" class="btn btn-primary">Generate plan</button>
+  <button type="button" id="btn-save" class="btn btn-success" disabled>Save plan</button>
+  <button type="button" id="btn-pdf" class="btn btn-outline-secondary" disabled>Download PDF</button>
+</div>
+<div id="plan-status" class="small text-muted mb-2"></div>
+<div id="plan-preview" class="border rounded p-3 bg-white shadow-sm"></div>
+
+<h2 class="h5 mt-5">Saved plans</h2>
+<div class="list-group shadow-sm">
+  {% for p in plans %}
+    <details class="list-group-item">
+      <summary class="fw-semibold">{{ p.created_at }}</summary>
+      <div class="plan-saved-md small mt-2">{{ p.plan_text|linebreaksbr }}</div>
+    </details>
+  {% empty %}
+    <div class="list-group-item text-muted">No saved plans yet.</div>
+  {% endfor %}
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+  const csrfToken = '{{ csrf_token }}';
+  let currentPlan = '';
+  const preview = document.getElementById('plan-preview');
+  const statusEl = document.getElementById('plan-status');
+  const btnSave = document.getElementById('btn-save');
+  const btnPdf = document.getElementById('btn-pdf');
+
+  function renderPlan(md) {
+    currentPlan = md;
+    preview.innerHTML = marked.parse(md);
+    btnSave.disabled = !md.trim();
+    btnPdf.disabled = !md.trim();
+  }
+
+  document.getElementById('btn-generate').addEventListener('click', () => {
+    statusEl.textContent = 'Generating…';
+    fetch('{% url "api_seven_day_plan_generate" %}', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {'X-CSRFToken': csrfToken},
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          statusEl.textContent = data.error;
+          return;
+        }
+        statusEl.textContent = 'Ready to save or export.';
+        renderPlan(data.plan || '');
+      })
+      .catch(() => { statusEl.textContent = 'Request failed.'; });
+  });
+
+  document.getElementById('btn-save').addEventListener('click', () => {
+    if (!currentPlan.trim()) return;
+    statusEl.textContent = 'Saving…';
+    fetch('{% url "api_seven_day_plan_save" %}', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+      body: JSON.stringify({plan_text: currentPlan}),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          statusEl.textContent = data.error;
+          return;
+        }
+        statusEl.textContent = 'Saved.';
+        location.reload();
+      })
+      .catch(() => { statusEl.textContent = 'Save failed.'; });
+  });
+
+  document.getElementById('btn-pdf').addEventListener('click', async () => {
+    if (!currentPlan.trim() || typeof html2canvas === 'undefined' || !window.jspdf) return;
+    const canvas = await html2canvas(preview);
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({orientation: 'portrait', unit: 'pt', format: 'a4'});
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth - 40;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    let heightLeft = imgHeight;
+    let position = 20;
+    pdf.addImage(imgData, 'PNG', 20, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight - 40;
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight + 20;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 20, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight - 40;
+    }
+    pdf.save('welltrack-7-day-plan.pdf');
+  });
+</script>
+{% endblock %}

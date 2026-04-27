@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block title %}Dashboard — Welltrack{% endblock %}
+{% block content %}
+<h1 class="h2 mb-4">Dashboard</h1>
+<div class="row g-4 mb-4">
+  <div class="col-md-4">
+    <div class="card h-100 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 text-muted">BMI</h2>
+        {% if bmi_value %}
+          <p class="display-6 mb-0">{{ bmi_value }}</p>
+          <p class="text-muted mb-0">{{ bmi_label }}</p>
+        {% else %}
+          <p class="text-muted mb-0">Add weight and height on your <a href="{% url 'accounts_profile' %}">profile</a>.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 text-muted">Body fat (Navy)</h2>
+        {% if body_fat is not None %}
+          <p class="display-6 mb-0">{{ body_fat }}%</p>
+          <p class="text-muted small mb-0">Estimate from waist/neck{% if profile.gender == 'female' %}/hip{% endif %}.</p>
+        {% else %}
+          <p class="text-muted mb-0">Complete gender and measurements on your profile for an estimate.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 text-muted">Recent calories</h2>
+        <p class="mb-1"><strong>Meals (shown):</strong> {{ meal_calories }} kcal</p>
+        <p class="mb-0 text-muted small">Exercise heuristic total: {{ burn_total }} (duration × 5 × (repeats+1))</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="h5 mb-0">Recent meals</h2>
+      <div class="d-flex gap-2">
+        <a class="btn btn-sm btn-outline-secondary" href="{% url 'food_log' %}">Food log</a>
+        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#quickFoodModal">Quick add</button>
+      </div>
+    </div>
+    <ul class="list-group shadow-sm">
+      {% for m in recent_meals %}
+        <li class="list-group-item d-flex justify-content-between">
+          <span>{{ m.food_item }} <span class="text-muted">({{ m.get_meal_type_display }})</span></span>
+          <span>{{ m.calories }} kcal</span>
+        </li>
+      {% empty %}
+        <li class="list-group-item text-muted">No meals logged yet. Use quick add or <a href="{% url 'food_log' %}">food log</a>.</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="col-lg-6">
+    <h2 class="h5 mb-2">Recent exercises</h2>
+    <ul class="list-group shadow-sm">
+      {% for c in recent_completions %}
+        <li class="list-group-item d-flex justify-content-between">
+          <span>{{ c.exercise.name }}</span>
+          <span class="text-muted small">repeats: {{ c.repeat_count }}</span>
+        </li>
+      {% empty %}
+        <li class="list-group-item text-muted">No completions yet. Visit <a href="{% url 'exercise_list' %}">exercises</a>.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+<div class="modal fade" id="quickFoodModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{% url 'dashboard_quick_food' %}">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title">Quick add food</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          {% for field in food_form %}
+            <div class="mb-3">
+              <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {% render_field field class+="form-control" %}
+            </div>
+          {% endfor %}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

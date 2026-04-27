@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Food log — Welltrack{% endblock %}
+{% block content %}
+<h1 class="h2 mb-4">Food log</h1>
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h2 class="h5 mb-3">Add entry</h2>
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% for field in form %}
+            <div class="mb-3">
+              <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field.errors }}
+              {{ field }}
+            </div>
+          {% endfor %}
+          <button type="submit" class="btn btn-primary">Save</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <h2 class="h5 mb-3">Recent entries</h2>
+    <div class="table-responsive shadow-sm">
+      <table class="table table-striped mb-0">
+        <thead><tr><th>Food</th><th>Meal</th><th>Calories</th><th>When</th></tr></thead>
+        <tbody>
+          {% for log in logs %}
+            <tr>
+              <td>{{ log.food_item }}</td>
+              <td>{{ log.get_meal_type_display }}</td>
+              <td>{{ log.calories }}</td>
+              <td class="text-muted small">{{ log.timestamp }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4" class="text-muted">No entries yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
