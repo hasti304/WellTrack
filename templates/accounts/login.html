@@ -15,6 +15,12 @@
   <button type="submit" class="btn btn-primary">Login</button>
 </form>
 <hr class="my-4 col-lg-5">
-<p class="text-muted">Or continue with Google</p>
-<a class="btn btn-outline-dark" href="{% url 'social:begin' 'google-oauth2' %}">Google</a>
+{% if google_oauth_enabled %}
+  <p class="text-muted mb-2">Or continue with Google</p>
+  <a class="btn btn-outline-dark" href="{% url 'social:begin' 'google-oauth2' %}">Google</a>
+{% else %}
+  <p class="text-muted mb-2">Google sign-in</p>
+  <button type="button" class="btn btn-outline-secondary" disabled title="Not configured on this server">Google (unavailable)</button>
+  <p class="small text-muted mt-2 mb-0">The administrator must set <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> to enable this option.</p>
+{% endif %}
 {% endblock %}

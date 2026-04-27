@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}7-Day Plan — Welltrack{% endblock %}
 {% block content %}
+{{ pdf_export|json_script:"welltrack-pdf-export" }}
 <h1 class="h2 mb-3">7-Day plan</h1>
 <p class="text-muted">Generate a Markdown plan from your goals, save it, or download a simple PDF in the browser.</p>
 <div class="d-flex flex-wrap gap-2 mb-3">
@@ -192,12 +193,102 @@
 
   document.getElementById('btn-pdf').addEventListener('click', async () => {
     if (!currentPlan.trim() || typeof html2canvas === 'undefined' || !window.jspdf) return;
-    const canvas = await html2canvas(preview);
-    const imgData = canvas.toDataURL('image/png');
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({orientation: 'portrait', unit: 'pt', format: 'a4'});
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 40;
+    const maxW = pageWidth - 2 * margin;
+
+    let exportData = {};
+    try {
+      const el = document.getElementById('welltrack-pdf-export');
+      if (el && el.textContent) exportData = JSON.parse(el.textContent);
+    } catch (_) {}
+
+    let coachTxt = '';
+    try {
+      const r = await fetch('{% url "api_smart_coach_history" %}', { credentials: 'same-origin' });
+      if (r.ok) {
+        const d = await r.json();
+        const hist = d.history || [];
+        if (hist.length) {
+          coachTxt = hist.slice(-8).map((h) => `${h.role}: ${h.content}`).join('\n\n');
+          if (coachTxt.length > 3500) coachTxt = coachTxt.slice(0, 3500) + '\n\n[Truncated.]';
+        }
+      }
+    } catch (_) {}
+
+    let y = margin;
+    function addHeading(txt, size) {
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(size);
+      const lh = size * 1.35;
+      const lines = pdf.splitTextToSize(txt, maxW);
+      for (const line of lines) {
+        if (y + lh > pageHeight - margin) {
+          pdf.addPage();
+          y = margin;
+        }
+        pdf.text(line, margin, y);
+        y += lh;
+      }
+      pdf.setFont('helvetica', 'normal');
+      y += 6;
+    }
+    function addParagraph(txt, size) {
+      if (!txt || !String(txt).trim()) return;
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(size);
+      const lh = size * 1.25;
+      const lines = pdf.splitTextToSize(String(txt).trim(), maxW);
+      for (const line of lines) {
+        if (y + lh > pageHeight - margin) {
+          pdf.addPage();
+          y = margin;
+        }
+        pdf.text(line, margin, y);
+        y += lh;
+      }
+      y += 8;
+    }
+
+    addHeading('Welltrack — 7-day wellness plan', 16);
+    addParagraph(`Exported: ${new Date().toLocaleString()}`, 10);
+    addParagraph(`Member: ${exportData.user_display_name || ''}`, 11);
+
+    addHeading('Goals & targets', 12);
+    const goalLines = [];
+    if (exportData.goal_calories) goalLines.push(`Daily calories (profile): ${exportData.goal_calories} kcal`);
+    if (exportData.goal_protein_g) goalLines.push(`Daily protein (profile): ${exportData.goal_protein_g} g`);
+    if (exportData.goal_workouts_per_week) {
+      goalLines.push(`Workouts per week (profile): ${exportData.goal_workouts_per_week}`);
+    }
+    const structured = goalLines.length ? goalLines.join('\n') : 'No structured numeric targets on profile.';
+    const narrative = (exportData.fitness_goals || '').trim() || 'No fitness goals paragraph on file.';
+    addParagraph(structured + '\n\nFitness goals:\n' + narrative, 10);
+
+    if (currentGoalMatch && typeof currentGoalMatch.score === 'number') {
+      addHeading('Plan goal match (heuristic)', 12);
+      const bd = currentGoalMatch.breakdown || {};
+      let gm = `Score: ${currentGoalMatch.score}/100`;
+      if ((bd.matched || []).length) gm += '\n\nMatched:\n- ' + bd.matched.join('\n- ');
+      if ((bd.missed || []).length) gm += '\n\nGaps:\n- ' + bd.missed.join('\n- ');
+      addParagraph(gm, 10);
+    } else {
+      addHeading('Plan goal match', 12);
+      addParagraph('Generate the plan in this session to include a goal-match summary, or save and reopen the plan.', 10);
+    }
+
+    addHeading('Smart Coach (recent thread excerpt)', 12);
+    addParagraph(coachTxt || 'No Smart Coach messages saved yet. Chat with Smart Coach, then export again to attach context.', 10);
+
+    addHeading('Plan body (preview follows)', 12);
+    addParagraph('The next pages are a visual capture of the Markdown preview as shown in the app.', 9);
+
+    pdf.addPage();
+    const canvas = await html2canvas(preview, { scale: 1.5, useCORS: true });
+    const imgData = canvas.toDataURL('image/png');
     const imgWidth = pageWidth - 40;
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
     let heightLeft = imgHeight;

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, LogoutView
@@ -23,6 +24,13 @@ def register(request):
 
 class AccountsLoginView(LoginView):
     template_name = "accounts/login.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["google_oauth_enabled"] = getattr(
+            settings, "GOOGLE_OAUTH_ENABLED", False
+        )
+        return ctx
 
 
 class AccountsLogoutView(LogoutView):

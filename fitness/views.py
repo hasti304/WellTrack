@@ -1,9 +1,11 @@
 import json
+from datetime import timedelta
 
 import requests
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.db.models import Prefetch
+from django.db.models import Count, Prefetch, Sum
+from django.utils import timezone
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
@@ -71,6 +73,24 @@ def dashboard(request):
         for c in recent_completions
     )
 
+    week_ago = timezone.now() - timedelta(days=7)
+    week_meals_agg = FoodLog.objects.filter(
+        user=request.user, timestamp__gte=week_ago
+    ).aggregate(total=Sum("calories"), n=Count("id"))
+    meals_week_calories = week_meals_agg["total"] or 0
+    meals_week_count = week_meals_agg["n"] or 0
+
+    week_completions = list(
+        CompletedExercise.objects.filter(user=request.user, completed_at__gte=week_ago).select_related(
+            "exercise"
+        )
+    )
+    burn_week_total = sum(
+        estimated_calories_burned(c.exercise.duration_minutes, c.repeat_count)
+        for c in week_completions
+    )
+    workouts_week_count = len(week_completions)
+
     food_form = FoodLogForm()
 
     return render(
@@ -85,6 +105,10 @@ def dashboard(request):
             "recent_completions": recent_completions,
             "meal_calories": meal_calories,
             "burn_total": burn_total,
+            "meals_week_calories": meals_week_calories,
+            "meals_week_count": meals_week_count,
+            "burn_week_total": burn_week_total,
+            "workouts_week_count": workouts_week_count,
             "food_form": food_form,
         },
     )
@@ -238,12 +262,18 @@ def api_smart_coach(request):
         f"[{idx+1}] Source {chunk.source_id}: {chunk.text}"
         for idx, chunk in enumerate(context_chunks)
     )
+    rag_max = getattr(settings, "SMART_COACH_RAG_CONTEXT_MAX_CHARS", 10000)
+    if len(rag_context) > rag_max:
+        rag_context = rag_context[:rag_max].rstrip() + "\n\n[Reference context truncated for length.]"
+
+    history_cap = getattr(settings, "SMART_COACH_MAX_HISTORY_MESSAGES", 16)
     system = (
         "You are a supportive fitness and nutrition coach. "
         "The user's stated goals: "
         f"{goals}. "
         f"Example exercises they might try: {sample_txt}. "
         "Give concise, practical advice. "
+        "You will see their recent conversation turns below; stay consistent with prior guidance when appropriate. "
         "If reference context is provided, ground your answer in it and avoid contradicting it."
     )
     if rag_context:
@@ -255,7 +285,7 @@ def api_smart_coach(request):
     msgs = [{"role": "system", "content": system}]
     coach_rows = list(
         SmartCoachChat.objects.filter(user=request.user).order_by("created_at")
-    )[-20:]
+    )[-history_cap:]
     for row in coach_rows:
         r = "user" if row.role == SmartCoachChat.ROLE_USER else "assistant"
         msgs.append({"role": r, "content": row.content})
@@ -287,7 +317,19 @@ def seven_day_plan(request):
             to_persist.append(p)
     if to_persist:
         SevenDayPlan.objects.bulk_update(to_persist, ["goal_match_score", "goal_match_breakdown"])
-    return render(request, "fitness/seven_day_plan.html", {"plans": plans})
+    profile = request.user.profile
+    pdf_export = {
+        "user_display_name": request.user.get_full_name() or request.user.username,
+        "fitness_goals": profile.fitness_goals or "",
+        "goal_calories": profile.goal_calories,
+        "goal_protein_g": profile.goal_protein_g,
+        "goal_workouts_per_week": profile.goal_workouts_per_week,
+    }
+    return render(
+        request,
+        "fitness/seven_day_plan.html",
+        {"plans": plans, "pdf_export": pdf_export},
+    )
 
 
 @login_required

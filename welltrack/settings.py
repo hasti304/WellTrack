@@ -132,6 +132,9 @@ AUTHENTICATION_BACKENDS = (
 
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = env("GOOGLE_CLIENT_ID", default="")
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = env("GOOGLE_CLIENT_SECRET", default="")
+GOOGLE_OAUTH_ENABLED = bool(
+    SOCIAL_AUTH_GOOGLE_OAUTH2_KEY.strip() and SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET.strip()
+)
 
 OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
 # OpenAI-compatible LLM: openai | openrouter | sambanova | cerebras
@@ -148,5 +151,9 @@ RAG_COLLECTION = env("RAG_COLLECTION", default="welltrack_guidelines")
 RAG_EMBEDDING_MODEL = env(
     "RAG_EMBEDDING_MODEL", default="sentence-transformers/all-MiniLM-L6-v2"
 )
+
+# Smart Coach: recent chat turns sent to the LLM (excluding the new user message count adjustment in code).
+SMART_COACH_MAX_HISTORY_MESSAGES = env.int("SMART_COACH_MAX_HISTORY_MESSAGES", default=16)
+SMART_COACH_RAG_CONTEXT_MAX_CHARS = env.int("SMART_COACH_RAG_CONTEXT_MAX_CHARS", default=10000)
 
 UNSPLASH_ACCESS_KEY = env("UNSPLASH_ACCESS_KEY", default="")

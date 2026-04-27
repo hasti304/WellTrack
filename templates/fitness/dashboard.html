@@ -33,9 +33,12 @@
   <div class="col-md-4">
     <div class="card h-100 shadow-sm">
       <div class="card-body">
-        <h2 class="h6 text-muted">Recent calories</h2>
-        <p class="mb-1"><strong>Meals (shown):</strong> {{ meal_calories }} kcal</p>
-        <p class="mb-0 text-muted small">Exercise heuristic total: {{ burn_total }} (duration × 5 × (repeats+1))</p>
+        <h2 class="h6 text-muted">Calories &amp; activity (from your logs)</h2>
+        <p class="mb-1 small"><strong>Last 7 days:</strong> {{ meals_week_calories }} kcal from {{ meals_week_count }} meal log{{ meals_week_count|pluralize }}.</p>
+        <p class="mb-1 small text-muted">Estimated burn from {{ workouts_week_count }} exercise session{{ workouts_week_count|pluralize }} in that window: <strong>{{ burn_week_total }}</strong> (same heuristic as below).</p>
+        <hr class="my-2">
+        <p class="mb-1 small"><strong>Latest 8 meals on screen:</strong> {{ meal_calories }} kcal total.</p>
+        <p class="mb-0 text-muted small">Latest 10 exercise logs (est. burn): {{ burn_total }} — duration × 5 × (repeats+1).</p>
       </div>
     </div>
   </div>
