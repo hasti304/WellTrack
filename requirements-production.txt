@@ -1,0 +1,11 @@
+# Render / production: no local Chroma + sentence-transformers (avoids huge PyTorch/CUDA downloads).
+# Set RAG_ENABLED=False on the host unless you add a persistent disk + full requirements.txt install.
+Django>=5.1,<5.2
+django-environ>=0.11.2
+django-widget-tweaks>=1.5.0
+social-auth-app-django>=5.4.0
+psycopg2-binary>=2.9.9
+Pillow>=10.0.0
+openai==0.28.1
+requests>=2.31.0
+gunicorn>=22.0

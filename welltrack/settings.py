@@ -79,6 +79,17 @@ if _database_url:
     DATABASES = {
         "default": env.db("DATABASE_URL"),
     }
+    # Supabase pooler / PgBouncer (transaction mode): required Django settings.
+    # Also avoids some IPv6-only direct `db.*.supabase.co` issues on hosts like Render free tier.
+    _url_l = _database_url.lower()
+    if (
+        "pooler.supabase.com" in _url_l
+        or ":6543" in _url_l
+        or "pgbouncer=true" in _url_l
+    ):
+        _pg = DATABASES["default"]
+        _pg["CONN_MAX_AGE"] = 0
+        _pg["DISABLE_SERVER_SIDE_CURSORS"] = True
 elif _db_name:
     DATABASES = {
         "default": {
