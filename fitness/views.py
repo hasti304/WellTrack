@@ -29,6 +29,12 @@ def _openai_chat(messages):
     return chat_completion(messages)
 
 
+@require_GET
+def health(request):
+    """Liveness probe for uptime monitors; avoids DB so it stays fast if Postgres is slow."""
+    return JsonResponse({"status": "ok", "service": "welltrack"})
+
+
 def home(request):
     hero_url = None
     key = getattr(settings, "UNSPLASH_ACCESS_KEY", "")
