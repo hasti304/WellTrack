@@ -20,8 +20,11 @@ DEBUG = env.bool("DEBUG", default=True)
 _allowed = env("ALLOWED_HOSTS", default="")
 if DEBUG and not _allowed.strip():
     ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
-else:
+elif _allowed.strip():
     ALLOWED_HOSTS = [h.strip() for h in _allowed.split(",") if h.strip()]
+else:
+    # Deploy-friendly default (e.g. Render *.onrender.com); override with ALLOWED_HOSTS for custom domains.
+    ALLOWED_HOSTS = [".onrender.com", "127.0.0.1", "localhost"]
 
 _csrf = env("CSRF_TRUSTED_ORIGINS", default="")
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf.split(",") if o.strip()]
@@ -42,6 +45,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -168,3 +172,17 @@ SMART_COACH_MAX_HISTORY_MESSAGES = env.int("SMART_COACH_MAX_HISTORY_MESSAGES", d
 SMART_COACH_RAG_CONTEXT_MAX_CHARS = env.int("SMART_COACH_RAG_CONTEXT_MAX_CHARS", default=10000)
 
 UNSPLASH_ACCESS_KEY = env("UNSPLASH_ACCESS_KEY", default="")
+
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        },
+    }

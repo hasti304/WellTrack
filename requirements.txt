@@ -8,3 +8,4 @@ openai==0.28.1
 requests>=2.31.0
 chromadb>=0.5.5
 sentence-transformers>=3.0.1
+gunicorn>=22.0

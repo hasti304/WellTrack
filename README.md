@@ -61,20 +61,35 @@ People track fitness and nutrition in scattered notes and apps. Welltrack centra
 
 ---
 
-## Production (Render + Supabase)
+## Production (Render)
 
-1. **Supabase:** create a project; use the **transaction pooler** `DATABASE_URL` (port `6543`, `*.pooler.supabase.com`, `sslmode=require`) if direct `db.*.supabase.co` fails from Render (IPv6 / network issues).
+### Option A — Blueprint (recommended)
 
-2. **Render:** Web Service, Python from repo **`runtime.txt`** (3.12.x).
+The repo root includes **`render.yaml`**: a **Web Service** (Python via **`runtime.txt`**) plus **Render Postgres** (`DATABASE_URL` wired automatically).
 
-   - **Build:** `pip install -r requirements-production.txt && python manage.py collectstatic --noinput`  
-     (or full `requirements.txt` if you need RAG on the server and accept large installs + persistent disk for Chroma.)
+1. In Render: **New → Blueprint**, connect this GitHub repo, apply the blueprint.
+2. When prompted, set **`CSRF_TRUSTED_ORIGINS`** to `https://<your-service-name>.onrender.com` (exact HTTPS origin; required for login/forms).
+3. Set **`LLM_API_KEY`** and **`LLM_MODEL`** (and optionally **`LLM_API_BASE`** if your provider needs it). Without these, Smart Coach and 7-day plan generation will fail at runtime.
+4. First deploy runs **`collectstatic`** (WhiteNoise serves `/static/`), then **`migrate --noinput`**, then **Gunicorn**. Health checks use **`/health/`**.
 
-   - **Start:** `python manage.py migrate && gunicorn welltrack.wsgi:application --bind 0.0.0.0:$PORT`
+**`ALLOWED_HOSTS`:** if unset in production, Django defaults include **`.onrender.com`** so your `*.onrender.com` URL works. Add your custom domain to `ALLOWED_HOSTS` when you use one.
 
-3. **Environment variables** (minimum): `DATABASE_URL`, `SECRET_KEY`, `DEBUG=False`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, LLM keys. Optional: `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, `RAG_ENABLED=False` for slim deploys.
+### Option B — Manual Web Service + Postgres
 
-See **`.env.example`** for names and comments.
+Create **PostgreSQL** and a **Python Web Service**, then set:
+
+- **Build:** `pip install -r requirements-production.txt && python manage.py collectstatic --noinput`  
+  (use full **`requirements.txt`** only if you need RAG on the server plus persistent disk for Chroma.)
+
+- **Start:** `python manage.py migrate --noinput && gunicorn welltrack.wsgi:application --bind 0.0.0.0:$PORT`
+
+Copy the Postgres **Internal Database URL** into **`DATABASE_URL`**. Add **`SECRET_KEY`**, **`DEBUG=False`**, **`CSRF_TRUSTED_ORIGINS`**, LLM keys; optional **`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`**, **`RAG_ENABLED=False`** for slim deploys.
+
+### Supabase instead of Render Postgres
+
+Use the **transaction pooler** `DATABASE_URL` (port **6543**, `*.pooler.supabase.com`, `sslmode=require`) if direct `db.*.supabase.co` fails from Render (IPv6 / network issues). Django settings already adjust for Supabase poolers.
+
+See **`.env.example`** for variable names and comments.
 
 ---
 
